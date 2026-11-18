@@ -1,0 +1,28 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": { "CMAKE_EXPORT_COMPILE_COMMANDS": "ON" }
+    },
+    { "name": "asan",    "inherits": "base", "cacheVariables": { "GYM_CONFIG": "asan",    "CMAKE_BUILD_TYPE": "Debug" } },
+    { "name": "tsan",    "inherits": "base", "cacheVariables": { "GYM_CONFIG": "tsan",    "CMAKE_BUILD_TYPE": "RelWithDebInfo" } },
+    { "name": "release", "inherits": "base", "cacheVariables": { "GYM_CONFIG": "release", "CMAKE_BUILD_TYPE": "Release" } },
+    { "name": "debug",   "inherits": "base", "cacheVariables": { "GYM_CONFIG": "debug",   "CMAKE_BUILD_TYPE": "Debug" } }
+  ],
+  "buildPresets": [
+    { "name": "asan",    "configurePreset": "asan" },
+    { "name": "tsan",    "configurePreset": "tsan" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "debug",   "configurePreset": "debug" }
+  ],
+  "testPresets": [
+    { "name": "asan",    "configurePreset": "asan",    "output": { "outputOnFailure": true }, "execution": { "timeout": 60 } },
+    { "name": "tsan",    "configurePreset": "tsan",    "output": { "outputOnFailure": true }, "execution": { "timeout": 120 } },
+    { "name": "release", "configurePreset": "release", "output": { "outputOnFailure": true }, "execution": { "timeout": 60 } },
+    { "name": "debug",   "configurePreset": "debug",   "output": { "outputOnFailure": true }, "execution": { "timeout": 60 } }
+  ]
+}
