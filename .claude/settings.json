@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(/sessions/*/solution/**)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git reset:*)",
+      "Bash(git clean:*)",
+      "Bash(rm:*)"
+    ],
+    "ask": [
+      "Bash(git checkout:*)",
+      "Bash(git restore:*)"
+    ]
+  }
+}
