@@ -22,7 +22,9 @@ def test_print_desktop_config_is_valid_json():
 def test_claude_code_settings_deny_solution_edits():
     s = json.loads((ROOT / ".claude/settings.json").read_text())
     assert "Edit(/sessions/*/solution/**)" in s["permissions"]["deny"]
-    assert any(r.startswith("Bash(git push") for r in s["permissions"]["deny"])
+    # Destructive git/rm stay denied; commit/push are allowed for gym development.
+    for rule in ("Bash(git reset:*)", "Bash(git clean:*)", "Bash(rm:*)"):
+        assert rule in s["permissions"]["deny"]
 
 
 def test_template_presets_match_python():
