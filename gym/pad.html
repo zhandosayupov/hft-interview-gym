@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gym Pad</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #677085; --line: #dde1e8;
+  --accent: #2f6fde; --ok: #1f8a4c; --bad: #c43838; --warn: #b7791f; --code-bg: #f1f3f6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15181e; --panel: #1c2028; --text: #e3e7ee; --muted: #8b93a5; --line: #2c323d;
+    --accent: #6b9cff; --ok: #4cc27f; --bad: #ff6b6b; --warn: #e2b04a; --code-bg: #232833;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15181e; --panel: #1c2028; --text: #e3e7ee; --muted: #8b93a5; --line: #2c323d;
+  --accent: #6b9cff; --ok: #4cc27f; --bad: #ff6b6b; --warn: #e2b04a; --code-bg: #232833;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  display: flex; flex-direction: column; }
+header { display: flex; align-items: center; gap: 12px; padding: 8px 16px;
+  border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+select, button { font: inherit; color: var(--text); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; }
+button { cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.spacer { flex: 1; }
+.meta { color: var(--muted); font-size: 12px; }
+#timer { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 56px; text-align: right; }
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(280px, 38%) 1fr; }
+.pane { min-height: 0; display: flex; flex-direction: column; background: var(--panel); }
+.pane + .pane { border-left: 1px solid var(--line); }
+.tabs { display: flex; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--line);
+  overflow-x: auto; flex-shrink: 0; }
+.tab { border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0;
+  padding: 5px 12px; background: none; color: var(--muted); white-space: nowrap; }
+.tab.active { color: var(--text); border-color: var(--line); background: var(--bg); }
+.tab .dirty { color: var(--warn); }
+#problem { flex: 1; overflow: auto; padding: 4px 20px 20px; }
+#problem pre, #problem code { background: var(--code-bg); border-radius: 4px; }
+#problem pre { padding: 10px; overflow-x: auto; }
+#problem code { padding: 1px 4px; font-size: 13px; }
+#problem pre code { padding: 0; }
+#testsView { flex: 1; min-height: 0; display: none; }
+#editorWrap { flex: 1; min-height: 0; position: relative; }
+.CodeMirror { height: 100%; font: 13.5px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; }
+textarea.fallback { width: 100%; height: 100%; border: 0; padding: 10px; resize: none;
+  font: 13.5px/1.5 ui-monospace, Consolas, monospace; background: var(--panel); color: var(--text); }
+.actions { display: flex; gap: 8px; align-items: center; padding: 8px 10px;
+  border-top: 1px solid var(--line); flex-wrap: wrap; flex-shrink: 0; }
+#result { font-weight: 600; }
+#result.ok { color: var(--ok); } #result.bad { color: var(--bad); }
+#output { flex-shrink: 0; height: 34%; min-height: 80px; overflow: auto; margin: 0;
+  padding: 10px 12px; border-top: 1px solid var(--line); background: var(--code-bg);
+  font: 12.5px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+#output .step { font-weight: 700; } #output .failed { color: var(--bad); }
+#output .passed { color: var(--ok); }
+#toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  background: var(--text); color: var(--bg); padding: 6px 14px; border-radius: 6px;
+  opacity: 0; transition: opacity .2s; pointer-events: none; font-size: 13px; }
+#toast.show { opacity: .92; }
+kbd { font-size: 11px; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; color: var(--muted); }
+@media (max-width: 800px) {
+  main { grid-template-columns: 1fr; grid-template-rows: 40% 60%; }
+  .pane + .pane { border-left: 0; border-top: 1px solid var(--line); }
+  header { padding: 8px 16px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Gym Pad</h1>
+  <select id="sessionSel" aria-label="Session"></select>
+  <span class="meta" id="sessionMeta"></span>
+  <span class="spacer"></span>
+  <span id="timer" title="Elapsed time for this session">00:00</span>
+  <button id="timerBtn" title="Pause / resume timer">Pause</button>
+  <button id="timerReset" title="Reset timer">Reset</button>
+  <button id="themeBtn" title="Toggle light/dark">Theme</button>
+</header>
+<main>
+  <section class="pane">
+    <div class="tabs" id="leftTabs">
+      <button class="tab active" data-left="problem">Problem</button>
+      <button class="tab" data-left="tests">Tests (read-only)</button>
+    </div>
+    <div id="problem"></div>
+    <div id="testsView"></div>
+  </section>
+  <section class="pane">
+    <div class="tabs" id="fileTabs"></div>
+    <div id="editorWrap"></div>
+    <div class="actions">
+      <button id="saveBtn" title="Save all (Ctrl+S)">Save</button>
+      <button id="reloadBtn" title="Reload files from disk (e.g. after editing in VS Code)">Reload</button>
+      <span class="spacer"></span>
+      <span id="result"></span>
+      <button class="primary" data-preset="asan" title="Ctrl+Enter">Build &amp; Test (ASan)</button>
+      <button data-preset="tsan">TSan</button>
+      <button data-preset="release">Release</button>
+    </div>
+    <pre id="output">Press Build &amp; Test (Ctrl+Enter) to configure, build and run the tests.
+Every run is saved to session.json, so the interviewer can see it.</pre>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const POST_HEADERS = { "Content-Type": "application/json", "X-Gym-Pad": "1" };
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage unavailable */ } },
+};
+const state = { session: null, files: {}, order: [], current: null, building: false };
+let editor = null, testsEditor = null;
+
+async function api(path, body) {
+  const opts = body === undefined ? {} : { method: "POST", headers: POST_HEADERS, body: JSON.stringify(body) };
+  const r = await fetch(path, opts);
+  const text = await r.text();
+  let data; try { data = JSON.parse(text); } catch (e) { data = { error: text }; }
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("show"), 1800);
+}
+function isDark() {
+  const forced = document.documentElement.dataset.theme;
+  if (forced) return forced === "dark";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function applyEditorTheme() {
+  const theme = isDark() ? "material-darker" : "default";
+  if (editor && editor.setOption) editor.setOption("theme", theme);
+  if (testsEditor && testsEditor.setOption) testsEditor.setOption("theme", theme);
+}
+
+// ---- editors (CodeMirror 5; plain textarea if the CDN is unreachable) ----------
+function makeEditor(parent, readOnly) {
+  if (window.CodeMirror) {
+    return CodeMirror(parent, {
+      mode: "text/x-c++src", lineNumbers: true, indentUnit: 4, tabSize: 4,
+      indentWithTabs: false, matchBrackets: true, autoCloseBrackets: !readOnly,
+      readOnly: readOnly, theme: isDark() ? "material-darker" : "default",
+      extraKeys: { Tab: (cm) => cm.execCommand(cm.somethingSelected() ? "indentMore" : "insertSoftTab") },
+    });
+  }
+  const ta = document.createElement("textarea");
+  ta.className = "fallback"; ta.readOnly = readOnly; ta.spellcheck = false;
+  parent.appendChild(ta);
+  return {
+    getValue: () => ta.value, setValue: (v) => { ta.value = v; },
+    on: (ev, fn) => ta.addEventListener(ev === "change" ? "input" : ev, fn),
+    refresh() {}, focus: () => ta.focus(), swapDoc() {}, fallback: true,
+  };
+}
+
+function renderProblem(md) {
+  const el = $("problem");
+  if (window.marked && window.DOMPurify) {
+    el.innerHTML = DOMPurify.sanitize(marked.parse(md || "*No problem.md yet.*"));
+  } else {
+    el.innerHTML = ""; const pre = document.createElement("pre");
+    pre.textContent = md || "No problem.md yet."; el.appendChild(pre);
+  }
+}
+
+// ---- files ---------------------------------------------------------------------
+function renderTabs() {
+  const bar = $("fileTabs"); bar.innerHTML = "";
+  for (const path of state.order) {
+    const f = state.files[path];
+    const b = document.createElement("button");
+    b.className = "tab" + (path === state.current ? " active" : "");
+    b.textContent = path.replace(/^solution\//, "");
+    if (f.dirty) { const d = document.createElement("span"); d.className = "dirty"; d.textContent = " ●"; b.appendChild(d); }
+    b.onclick = () => openFile(path);
+    bar.appendChild(b);
+  }
+}
+function openFile(path) {
+  if (state.current && state.files[state.current] && editor.fallback) {
+    state.files[state.current].content = editor.getValue();
+  }
+  state.current = path;
+  const f = state.files[path];
+  if (editor.fallback) { editor.setValue(f.content); }
+  else {
+    if (!f.doc) { f.doc = CodeMirror.Doc(f.content, "text/x-c++src"); f.doc.on("change", onEdit); }
+    editor.swapDoc(f.doc);
+  }
+  renderTabs(); editor.focus();
+}
+function onEdit() {
+  const f = state.files[state.current]; if (!f) return;
+  const v = f.doc ? f.doc.getValue() : editor.getValue();
+  const was = f.dirty; f.dirty = v !== f.saved;
+  if (was !== f.dirty) renderTabs();
+}
+function currentContent(path) {
+  const f = state.files[path];
+  if (f.doc) return f.doc.getValue();
+  return path === state.current ? editor.getValue() : f.content;
+}
+async function saveAll(quiet) {
+  let n = 0;
+  for (const path of state.order) {
+    const f = state.files[path], content = currentContent(path);
+    if (content === f.saved) continue;
+    await api("/api/save", { session: state.session, path, content });
+    f.saved = content; f.content = content; f.dirty = false; n++;
+  }
+  renderTabs();
+  if (!quiet) toast(n ? `Saved ${n} file${n > 1 ? "s" : ""}` : "Nothing to save");
+  return n;
+}
+function anyDirty() { return state.order.some((p) => currentContent(p) !== state.files[p].saved); }
+
+async function loadSession(id, keepCurrent) {
+  const v = await api("/api/session?id=" + encodeURIComponent(id));
+  state.session = id; store.set("gympad.session", id);
+  const s = v.state;
+  $("sessionMeta").textContent = `${s.track} · ${s.difficulty} · ${s.status}`;
+  renderProblem(v.problem_md);
+  const prev = keepCurrent ? state.current : null;
+  state.files = {}; state.order = v.solution_files;
+  for (const path of v.solution_files) {
+    const r = await api(`/api/file?session=${encodeURIComponent(id)}&path=${encodeURIComponent(path)}`);
+    state.files[path] = { content: r.content, saved: r.content, dirty: false, doc: null };
+  }
+  const tests = [];
+  for (const path of v.test_files) {
+    const r = await api(`/api/file?session=${encodeURIComponent(id)}&path=${encodeURIComponent(path)}`);
+    tests.push(`// ===== ${path} =====\n${r.content}`);
+  }
+  testsEditor.setValue(tests.join("\n\n") || "// No tests yet. The interviewer writes them in tests/.");
+  if (state.order.length) openFile(prev && state.files[prev] ? prev : state.order[0]);
+  else { renderTabs(); editor.setValue("// No files in solution/."); }
+  showLastBuild(s.builds);
+  startTimer();
+}
+function showLastBuild(builds) {
+  const r = $("result");
+  if (!builds || !builds.length) { r.textContent = ""; r.className = ""; return; }
+  const b = builds[builds.length - 1];
+  r.className = b.ok ? "ok" : "bad";
+  r.textContent = `last run (${b.preset}): ` + (b.ok ? `passed ${b.tests_passed}/${b.tests_total}` : `failed at ${b.failed_step}`);
+}
+
+// ---- build ---------------------------------------------------------------------
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; e.textContent = text; return e; }
+async function runBuild(preset) {
+  if (state.building || !state.session) return;
+  state.building = true;
+  const buttons = document.querySelectorAll("[data-preset]");
+  buttons.forEach((b) => { b.disabled = true; });
+  const out = $("output"), res = $("result");
+  res.className = ""; res.textContent = `building (${preset})…`;
+  out.textContent = ""; const t0 = performance.now();
+  try {
+    await saveAll(true);
+    const s = await api("/api/build", { session: state.session, preset });
+    const secs = ((performance.now() - t0) / 1000).toFixed(1);
+    res.className = s.ok ? "ok" : "bad";
+    res.textContent = s.ok
+      ? `✓ ${preset}: ${s.tests_passed ?? "?"}/${s.tests_total ?? "?"} tests passed (${secs}s)`
+      : `✗ ${preset}: failed at ${s.brief.failed_step}` + (s.tests_total ? ` — ${s.tests_passed}/${s.tests_total} passed` : "");
+    if (s.sanitizer_reports.length) out.appendChild(el("div", "failed", "Sanitizer:\n" + s.sanitizer_reports.join("\n") + "\n\n"));
+    for (const st of s.steps) {
+      out.appendChild(el("div", "step " + (st.ok ? "passed" : "failed"),
+        `== ${st.step}: ${st.ok ? "ok" : "FAILED"} (rc=${st.returncode}, ${st.duration_s}s)${st.timed_out ? " TIMED OUT" : ""}`));
+      if (!st.ok || st.step === "test") out.appendChild(el("div", "", st.output_tail + "\n"));
+    }
+    out.scrollTop = out.scrollHeight;
+  } catch (e) {
+    res.className = "bad"; res.textContent = "error"; out.textContent = String(e.message || e);
+  } finally {
+    state.building = false; buttons.forEach((b) => { b.disabled = false; });
+  }
+}
+
+// ---- timer (per session, survives reloads via localStorage when available) ------
+let timerTick = null;
+function timerKey() { return "gympad.timer." + state.session; }
+function timerState() {
+  try { return JSON.parse(store.get(timerKey())) || null; } catch (e) { return null; }
+}
+function startTimer() {
+  let t = timerState();
+  if (!t) { t = { start: Date.now(), pausedAt: null }; store.set(timerKey(), JSON.stringify(t)); }
+  clearInterval(timerTick); timerTick = setInterval(drawTimer, 500); drawTimer();
+}
+function drawTimer() {
+  const t = timerState(); if (!t) return;
+  const now = t.pausedAt || Date.now(), s = Math.max(0, Math.floor((now - t.start) / 1000));
+  $("timer").textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  $("timerBtn").textContent = t.pausedAt ? "Resume" : "Pause";
+}
+$("timerBtn").onclick = () => {
+  const t = timerState() || { start: Date.now(), pausedAt: null };
+  if (t.pausedAt) { t.start += Date.now() - t.pausedAt; t.pausedAt = null; } else { t.pausedAt = Date.now(); }
+  store.set(timerKey(), JSON.stringify(t)); drawTimer();
+};
+$("timerReset").onclick = () => { store.set(timerKey(), JSON.stringify({ start: Date.now(), pausedAt: null })); drawTimer(); };
+
+// ---- wiring --------------------------------------------------------------------
+$("themeBtn").onclick = () => {
+  const next = isDark() ? "light" : "dark";
+  document.documentElement.dataset.theme = next; store.set("gympad.theme", next); applyEditorTheme();
+};
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyEditorTheme);
+$("leftTabs").onclick = (e) => {
+  const b = e.target.closest("[data-left]"); if (!b) return;
+  document.querySelectorAll("#leftTabs .tab").forEach((x) => x.classList.toggle("active", x === b));
+  const tests = b.dataset.left === "tests";
+  $("problem").style.display = tests ? "none" : "block";
+  $("testsView").style.display = tests ? "block" : "none";
+  if (tests) testsEditor.refresh();
+};
+document.querySelectorAll("[data-preset]").forEach((b) => { b.onclick = () => runBuild(b.dataset.preset); });
+$("saveBtn").onclick = () => saveAll(false).catch((e) => toast("Save failed: " + e.message));
+$("reloadBtn").onclick = () => {
+  if (anyDirty() && !confirm("Discard unsaved changes and reload from disk?")) return;
+  loadSession(state.session, true).then(() => toast("Reloaded")).catch((e) => toast(e.message));
+};
+$("sessionSel").onchange = (e) => {
+  if (anyDirty() && !confirm("Discard unsaved changes?")) { e.target.value = state.session; return; }
+  loadSession(e.target.value).catch((err) => toast(err.message));
+};
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); saveAll(false).catch((x) => toast("Save failed: " + x.message)); }
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runBuild("asan"); }
+});
+window.addEventListener("beforeunload", (e) => { if (anyDirty()) { e.preventDefault(); e.returnValue = ""; } });
+
+(async function init() {
+  const theme = store.get("gympad.theme"); if (theme) document.documentElement.dataset.theme = theme;
+  editor = makeEditor($("editorWrap"), false);
+  testsEditor = makeEditor($("testsView"), true);
+  if (editor.fallback) editor.on("change", onEdit);  // CodeMirror docs get their own listener
+  try {
+    const { sessions, latest } = await api("/api/sessions");
+    const sel = $("sessionSel"); sel.innerHTML = "";
+    for (const s of sessions) {
+      const o = document.createElement("option"); o.value = s.id; o.textContent = `${s.id} — ${s.title}`; sel.appendChild(o);
+    }
+    if (!sessions.length) { renderProblem("No sessions yet. Ask the interviewer to start one."); return; }
+    const remembered = store.get("gympad.session");
+    const id = sessions.some((s) => s.id === remembered) ? remembered : latest;
+    sel.value = id; await loadSession(id);
+  } catch (e) { renderProblem("**Could not load sessions:** " + e.message); }
+})();
+</script>
+</body>
+</html>

@@ -6,6 +6,8 @@ Policy (enforced in code, not just in the prompt):
   * The interviewer may WRITE only: problem.md, tests/**, bench/**, and the
     session report/transcript files. It may never write into solution/**.
   * Nothing is ever deleted by the tools.
+  * The local pad (gym/pad.py) is the CANDIDATE's editor: it may write only
+    solution/** source files (candidate_write). It is never exposed via MCP.
 """
 from __future__ import annotations
 
@@ -17,6 +19,8 @@ from pathlib import Path, PurePosixPath
 WRITABLE_FILES = frozenset({"problem.md", "notes.md"})
 WRITABLE_DIRS = ("tests", "bench")
 SOLUTION_DIR = "solution"
+CANDIDATE_SUFFIXES = frozenset({".hpp", ".h", ".hh", ".ipp", ".cpp", ".cc", ".cxx"})
+MAX_WRITE_BYTES = 500_000
 MAX_READ_BYTES = 200_000
 TEXT_SUFFIXES = frozenset(
     {".md", ".txt", ".json", ".cpp", ".cc", ".cxx", ".hpp", ".h", ".hh", ".ipp",
@@ -110,6 +114,27 @@ class Workspace:
         target = self.check_interviewer_write(session_id, rel_in_session)
         if target.exists() and not overwrite:
             raise PolicyError(f"{rel_in_session} exists; pass overwrite=true to replace it")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        return target
+
+    def check_candidate_write(self, session_id: str, rel_in_session: str) -> Path:
+        """Return the absolute target if the candidate's pad may write it: solution/** sources only."""
+        sdir = self.session_dir(session_id)
+        target = (sdir / rel_in_session).resolve()
+        if sdir not in target.parents:
+            raise PolicyError(f"path escapes session: {rel_in_session}")
+        parts = target.relative_to(sdir).parts
+        if len(parts) < 2 or parts[0] != SOLUTION_DIR:
+            raise PolicyError(f"the pad writes only {SOLUTION_DIR}/**; got {rel_in_session}")
+        if target.suffix.lower() not in CANDIDATE_SUFFIXES:
+            raise PolicyError(f"only C++ sources {sorted(CANDIDATE_SUFFIXES)}; got {rel_in_session}")
+        return target
+
+    def candidate_write(self, session_id: str, rel_in_session: str, content: str) -> Path:
+        target = self.check_candidate_write(session_id, rel_in_session)
+        if len(content.encode()) > MAX_WRITE_BYTES:
+            raise PolicyError(f"file too large (> {MAX_WRITE_BYTES} bytes)")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
         return target

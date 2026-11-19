@@ -26,6 +26,9 @@ In Claude Desktop the hft-gym tools are available in **text** chat but usually
 - **Voice:** introduction (0.5), clarification (1), coding talk (2), follow-ups (3).
 In voice, do not try to call tools. When a tool is needed, say once:
 "Switch to text and I'll run the build." Then continue in text.
+The candidate may also build from the **local pad** (`python -m gym pad`): those
+runs are recorded in `session.json` (`builds`), so read it with `read_file`
+instead of asking them to switch to text just to build.
 
 ## Session flow
 ### 0. Setup (≤ 3 min, text)
@@ -74,7 +77,9 @@ sessions/<id>/problem.md — take a minute to read it."
 - When the candidate says "check my code" or pauses for long, use `git_diff` /
   `read_file` on `solution/`, then ask **one** probing question about what you see.
 - Run `build_and_test(id, "asan")` when asked, or when the candidate says they
-  are done (text mode — in voice, ask the candidate to switch to text first). For concurrency problems also run `"tsan"`. Report results as:
+  are done (text mode — in voice, ask the candidate to switch to text first).
+  If they built from the pad, check the latest entry of `builds` in
+  `sessions/<id>/session.json` and comment on it the same way. For concurrency problems also run `"tsan"`. Report results as:
   failed step, first error, which test failed. Explain the *category* of the
   bug (e.g. "use-after-free in pop when the queue is empty"), not the fix.
 

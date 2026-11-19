@@ -1,4 +1,4 @@
-"""Command-line helpers: python -m gym {build,history,metrics,serve}."""
+"""Command-line helpers: python -m gym {build,history,sessions,metrics,serve,pad}."""
 from __future__ import annotations
 
 import argparse
@@ -21,12 +21,22 @@ def main(argv: list[str] | None = None) -> int:
     m = sub.add_parser("metrics", help="filler metrics for a text file, one answer per paragraph")
     m.add_argument("file")
     sub.add_parser("serve", help="run the MCP stdio server")
+    pd = sub.add_parser("pad", help="local coding pad for the candidate (editor + Build & Test)")
+    pd.add_argument("--host", default="127.0.0.1",
+                    help="bind address (default 127.0.0.1; keep it local)")
+    pd.add_argument("--port", type=int, default=8765)
+    pd.add_argument("--allow-host", action="append", default=[],
+                    help="extra Host header to accept, e.g. the WSL IP (repeatable)")
     a = p.parse_args(argv)
     ws = Workspace.from_env()
 
     if a.cmd == "serve":
         from .server import main as serve
         serve()
+        return 0
+    if a.cmd == "pad":
+        from .pad import serve as serve_pad
+        serve_pad(ws, a.host, a.port, set(a.allow_host))
         return 0
     if a.cmd == "sessions":
         for s in session.list_sessions(ws):

@@ -117,8 +117,27 @@ python -m gym sessions          # list sessions
 python -m gym build             # build + test latest session (asan)
 python -m gym build <id> --preset tsan
 python -m gym history           # progress table + recurring weaknesses
+python -m gym pad               # CoderPad-style editor + Build & Test on http://127.0.0.1:8765
 python -m pytest -q             # gym self-tests (add -m "not cpp" for the fast subset)
 ```
+
+## Local pad (CoderPad-style)
+
+`python -m gym pad` (inside WSL, from the repo root) serves a local page at
+<http://127.0.0.1:8765> — open it in the Windows browser (WSL forwards localhost).
+Problem on the left, C++ editor for `solution/` on the right (no autocomplete,
+like a real interview pad), **Build & Test** buttons (ASan / TSan / Release),
+a timer. Ctrl+S saves, Ctrl+Enter builds; files are saved before every build.
+
+Why: in Claude Desktop voice mode the hft-gym tools are usually unavailable, so
+building from the pad lets the whole discussion + coding phase stay in voice.
+Every run is recorded in `session.json`, and the interviewer reads it later.
+
+Limits: the page writes **only** `solution/**` C++ sources (enforced in
+`gym/workspace.py`); it binds 127.0.0.1, rejects foreign `Host`/`Origin`
+headers and requires a custom header for writes and builds. The editor and
+Markdown renderer load from cdnjs; offline you get a plain text area. Editing the
+same file in VS Code at the same time works, but press **Reload** in the pad first.
 
 Commit your sessions yourself (`git add sessions/<id> && git commit`) — the
 tools never commit, push or delete.
