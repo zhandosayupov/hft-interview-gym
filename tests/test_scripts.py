@@ -15,7 +15,8 @@ def test_print_desktop_config_is_valid_json():
     srv = json.loads(out)["mcpServers"]["hft-gym"]
     assert srv["command"] == "wsl.exe"
     assert srv["args"][-2:] == ["-m", "gym.server"]
-    assert srv["args"][srv["args"].index("--cd") + 1] == str(ROOT)
+    assert "--cd" not in srv["args"]  # not supported by old inbox wsl.exe
+    assert srv["args"][srv["args"].index("--exec") + 1] == f"{ROOT}/.venv/bin/python"
 
 
 def test_claude_code_settings_deny_solution_edits():

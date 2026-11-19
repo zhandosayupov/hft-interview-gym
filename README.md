@@ -58,6 +58,9 @@ requires Pro/Max/Ultra.
    ```bash
    wsl --install -d Ubuntu-24.04
    ```
+   If `wsl --version` says "invalid option", you have the old inbox WSL. It works for this
+   project; install the Store version (`winget install Microsoft.WSL`) only if you need WSLg
+   (Claude Code voice dictation fallback) or a newer kernel.
 2. In Ubuntu, clone into the Linux filesystem (not `/mnt/c`):
    ```bash
    mkdir -p ~/projects && cd ~/projects && git clone <this repo> hft-interview-gym && cd hft-interview-gym
