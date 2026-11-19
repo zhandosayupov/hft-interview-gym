@@ -214,3 +214,7 @@ python -m pytest -q             # gym self-tests (add -m "not cpp" for the fast 
 - Claude Code fallback: `Edit` deny rules cover Claude's file tools and recognised
   shell writes, but per Anthropic's docs they are **not** a hard boundary against
   arbitrary subprocesses. The MCP path is the stricter one.
+
+## License
+
+[MIT](LICENSE)
