@@ -14,6 +14,13 @@ from .workspace import Workspace
 GUIDE_PATH = "docs/interviewer.md"
 
 
+# MCP-facing tools take the session as `gym_session`, not `session_id`:
+# Claude Desktop's chat bridge (mcp__remote-devices__*) drops an argument named
+# `session_id` before it reaches the server (Stage 0, 2026-11-19), so every
+# session tool failed with "session_id: Field required". Internal modules keep
+# `session_id`; start_session returns both keys.
+
+
 def _ws() -> Workspace:
     return Workspace.from_env()
 
@@ -42,17 +49,17 @@ def start_session(slug: str, title: str, track: str, difficulty: str, problem_md
     difficulty: easy|medium|hard. problem_md must NOT contain the solution or hints.
     """
     st = session.create_session(_ws(), slug, title, track, difficulty, problem_md)
-    return {"session_id": st.id, "path": f"sessions/{st.id}",
+    return {"gym_session": st.id, "session_id": st.id, "path": f"sessions/{st.id}",
             "candidate_writes": f"sessions/{st.id}/solution/",
-            "next": "write tests with write_scaffold_file(session_id, 'tests/test_solution.cpp', ...)"}
+            "next": "write tests with write_scaffold_file(gym_session, 'tests/test_solution.cpp', ...)"}
 
 
-def write_scaffold_file(session_id: str, path: str, content: str, overwrite: bool = False) -> dict:
+def write_scaffold_file(gym_session: str, path: str, content: str, overwrite: bool = False) -> dict:
     """Write problem.md, notes.md, tests/** or bench/** inside a session.
 
     Writing to solution/** is refused: the candidate owns the solution.
     """
-    p = _ws().interviewer_write(session_id, path, content, overwrite)
+    p = _ws().interviewer_write(gym_session, path, content, overwrite)
     return {"written": p.relative_to(_ws().root).as_posix(), "bytes": len(content.encode())}
 
 
@@ -76,31 +83,31 @@ def git_diff(path: str = "sessions", staged: bool = False) -> str:
     return gitview.diff(_ws(), path, staged)
 
 
-def build_and_test(session_id: str, preset: str = "asan") -> dict:
+def build_and_test(gym_session: str, preset: str = "asan") -> dict:
     """Configure, build and run tests. preset: asan (default) | tsan | release | debug."""
-    return build.build_and_test(_ws(), session_id, preset).to_dict()
+    return build.build_and_test(_ws(), gym_session, preset).to_dict()
 
 
-def run_benchmark(session_id: str, filter_regex: str = "") -> dict:
+def run_benchmark(gym_session: str, filter_regex: str = "") -> dict:
     """Build the release preset and run bench/ with Google Benchmark."""
-    r = build.run_benchmark(_ws(), session_id, filter_regex)
+    r = build.run_benchmark(_ws(), gym_session, filter_regex)
     return {"ok": r.ok, "returncode": r.returncode, "timed_out": r.timed_out,
             "duration_s": r.duration_s, "output": r.output_tail}
 
 
-def set_session_status(session_id: str, status: str) -> dict:
+def set_session_status(gym_session: str, status: str) -> dict:
     """Update phase: setup|discussion|coding|review|done."""
-    return {"status": session.set_status(_ws(), session_id, status).status}
+    return {"status": session.set_status(_ws(), gym_session, status).status}
 
 
-def save_transcript(session_id: str, candidate_answers: list[str],
+def save_transcript(gym_session: str, candidate_answers: list[str],
                     interviewer_questions: list[str] | None = None) -> dict:
     """Save the candidate's answers VERBATIM (keep uh/um, repetitions, errors) and
     return deterministic text metrics (fillers, hedges, answer length)."""
-    return report.save_transcript(_ws(), session_id, candidate_answers, interviewer_questions)
+    return report.save_transcript(_ws(), gym_session, candidate_answers, interviewer_questions)
 
 
-def save_report(session_id: str, approach: str, technical: dict, communication: dict,
+def save_report(gym_session: str, approach: str, technical: dict, communication: dict,
                 verdict: str, strengths: list[str], weaknesses: list[str],
                 weakness_notes: list[str], recommendations: list[str],
                 rewrites: list[dict] | None = None) -> dict:
@@ -120,8 +127,8 @@ def save_report(session_id: str, approach: str, technical: dict, communication: 
         recommendations=recommendations,
         rewrites=[report.Rewrite(**x) for x in (rewrites or [])],
     )
-    d = report.save_report(_ws(), session_id, r)
-    return {"saved": f"sessions/{session_id}/report.md", "technical_mean": d["technical_mean"],
+    d = report.save_report(_ws(), gym_session, r)
+    return {"saved": f"sessions/{gym_session}/report.md", "technical_mean": d["technical_mean"],
             "communication_mean": d["communication_mean"]}
 
 
