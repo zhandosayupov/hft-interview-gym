@@ -22,7 +22,12 @@ fi
 
 echo "== Libraries"
 for p in GTest benchmark; do
-  if ls /usr/lib/x86_64-linux-gnu/cmake/$p /usr/lib/cmake/$p /usr/local/lib/cmake/$p >/dev/null 2>&1; then pass "$p CMake package"; else fail "$p (apt install libgtest-dev libbenchmark-dev)"; fi
+  # Any one location is enough; `ls a b c` fails if *some* path is missing.
+  found=""
+  for d in /usr/lib/x86_64-linux-gnu/cmake/$p /usr/lib/cmake/$p /usr/local/lib/cmake/$p; do
+    [ -d "$d" ] && { found="$d"; break; }
+  done
+  if [ -n "$found" ]; then pass "$p CMake package ($found)"; else fail "$p (apt install libgtest-dev libbenchmark-dev)"; fi
 done
 
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
