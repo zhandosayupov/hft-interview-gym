@@ -1,0 +1,9 @@
+{
+  "id": "20261119-0830-spsc-ring-buffer",
+  "title": "Bounded Lock-Free Queue for Two Threads",
+  "track": "concurrency",
+  "difficulty": "medium",
+  "created_at": "2026-11-19T08:30:05+00:00",
+  "status": "discussion",
+  "builds": []
+}
