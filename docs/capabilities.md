@@ -1,7 +1,8 @@
 # Claude capabilities relevant to this project (checked 2026-11-18)
 
 Legend: **V** = verified in official Anthropic docs, **N** = news/third-party only,
-**U** = unknown / not documented — must be tested on your machine (Stage 0).
+**U** = unknown / not documented — must be tested on your machine (Stage 0),
+**T** = tested on the author's machine (see "Stage 0 results" below).
 
 | # | Capability | Status | Source / note |
 |---|---|---|---|
@@ -10,7 +11,7 @@ Legend: **V** = verified in official Anthropic docs, **N** = news/third-party on
 | 3 | Voice is turn-based, not full duplex | N | [Engadget, 2026-07-23](https://www.engadget.com/2221938/claude-voice-mode-just-got-smarter/) |
 | 4 | Voice transcript saved as text in chat history; audio not kept | V | support article |
 | 5 | Connected tools (connectors: Gmail, Calendar, Slack…) work in voice mode "the same way as in text chat"; paid plans choose model (Sonnet/Opus); Fable not available in voice | V | support article |
-| 6 | **Local MCP servers (claude_desktop_config.json) callable from voice mode** | **U** | Not mentioned anywhere. This is the critical assumption — Stage 0 tests it. |
+| 6 | **Local MCP servers (claude_desktop_config.json) callable from voice mode** | **T** | Not documented by Anthropic. Stage 0 on 2026-11-19: works, in text chat and in voice mode — see "Stage 0 results". |
 | 7 | **"In Claude Cowork and Claude Code, dictation is available but voice mode isn't."** | V | support article. ⇒ No two-way voice inside Cowork or the Code tab. |
 | 8 | Claude Code CLI `/voice`: speech-to-text only (no spoken replies), hold-Space or tap mode, 20 languages, claude.ai login required, local mic required, not in SSH/cloud sessions; in WSL needs WSLg (+ `sox libsox-fmt-pulse` if audio fails) | V | [code.claude.com/docs/en/voice-dictation](https://code.claude.com/docs/en/voice-dictation) |
 | 9 | Claude Code Desktop (Code tab) can run a session inside WSL 2; use it when the repo lives in the distro FS. Plugins unavailable in WSL sessions | V | [code.claude.com/docs/en/desktop-wsl](https://code.claude.com/docs/en/desktop-wsl.md) |
@@ -30,12 +31,38 @@ screenshots, and computer use is not available inside voice mode anyway.
 
 ## Measurement limits (be honest about these)
 
-- Filler counts depend on the speech-to-text engine. Many ASR systems drop
-  "uh/um". Stage 0 checks whether Claude's transcript keeps them. If not,
-  filler metrics are a lower bound and must be labelled as such.
+- Filler counts depend on the speech-to-text engine. **Stage 0 showed that
+  Claude's voice transcript drops some fillers** ("um" and one of two "uh"
+  were lost, see below). Filler metrics are therefore a **lower bound only**
+  and must be labelled as such in every report.
+- The same engine garbles technical words ("a heap" → "he bought",
+  "gym ping" → "Jim Pink"). Word-level metrics (answer length, hedges) are
+  approximate; check the transcript before scoring precision of wording.
 - Pauses, speaking rate and pronunciation cannot be measured from the text
   transcript. The tools do not pretend to.
 - For calibration only: in conversational English, Bortfeld et al. (2001,
   *Language and Speech* 44(2)) report roughly 6 disfluencies per 100 words
   (all types, not only uh/um). Treat it as a conversational baseline, not an
   interview target.
+
+## Stage 0 results (2026-11-19, author's machine)
+
+Setup: Windows 10, inbox WSL2 (kernel 5.10, no WSLg), Claude Desktop from the
+Microsoft Store. For the Store build the config is
+`%LOCALAPPDATA%\Packages\AnthropicPBC.Claude_*\LocalCache\Roaming\Claude\claude_desktop_config.json`
+and logs are in `...\LocalCache\Local\Claude\logs\` (not `%APPDATA%\Claude`).
+
+| Test | Result | Evidence |
+|---|---|---|
+| (a) text chat calls a tool | **pass** | `read_file` on a file holding a random 24-hex nonce returned the exact nonce; the server process read the file at that moment. hft-gym is **not** listed in the chat's "+" menu, but the model sees all 15 tools. |
+| (b) voice mode calls a tool | **pass** | First try failed: speech-to-text heard "gym ping" as "Jim Pink" and no tool was called. With plain words ("Please run the health check tool and tell me the workspace root") the server answered a request (its write counter grew). |
+| (c) fillers in transcript | **partly dropped** | Said "Um, so, uh, I think, uh, a heap works." → transcript "I think he bought uh, I think heap works heap, not he like." ⇒ filler metrics are a lower bound only. |
+| (d) ~15 s silence mid-answer | **no interruption** | Hands-free mode is fine; push-to-talk not needed. |
+
+Verdict: **the main design (Desktop voice mode + local MCP server) works.**
+Practical notes:
+- Desktop does **not** log chat-originated `tools/call` in
+  `mcp-server-hft-gym.log` (only `initialize`/`tools/list`). To verify a call,
+  watch the server process (`/proc/<pid>/io` write counter) or use a nonce file.
+- In voice, refer to tools in plain words ("health check", "build and test"),
+  not by their snake_case names.
