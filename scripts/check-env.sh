@@ -4,6 +4,7 @@ set -u
 ok=0; bad=0
 pass() { printf '  [ok]   %s\n' "$1"; ok=$((ok+1)); }
 fail() { printf '  [MISS] %s\n' "$1"; bad=$((bad+1)); }
+opt()  { printf '  [opt]  %s\n' "$1"; }  # optional: reported, never fails the check
 have() { command -v "$1" >/dev/null 2>&1; }
 
 echo "== Platform"
@@ -57,8 +58,8 @@ else
 fi
 
 echo "== Audio for Claude Code /voice in WSL (only needed for the fallback workflow)"
-[ -n "${WAYLAND_DISPLAY:-}${PULSE_SERVER:-}" ] && pass "WSLg audio env present" || fail "WSLg not detected (needed only for Claude Code voice dictation inside WSL)"
-have sox && pass "sox" || fail "sox (sudo apt install sox libsox-fmt-pulse) — only for the fallback"
+[ -n "${WAYLAND_DISPLAY:-}${PULSE_SERVER:-}" ] && pass "WSLg audio env present" || opt "WSLg not detected (needed only for Claude Code voice dictation inside WSL)"
+have sox && pass "sox" || opt "sox (sudo apt install sox libsox-fmt-pulse) — only for the fallback"
 
 echo; echo "summary: $ok ok, $bad missing"
 [ "$bad" -eq 0 ]

@@ -3,6 +3,7 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     strategy:
       matrix:
         cxx: [g++, clang++]
