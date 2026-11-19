@@ -11,7 +11,7 @@ Legend: **V** = verified in official Anthropic docs, **N** = news/third-party on
 | 3 | Voice is turn-based, not full duplex | N | [Engadget, 2026-07-23](https://www.engadget.com/2221938/claude-voice-mode-just-got-smarter/) |
 | 4 | Voice transcript saved as text in chat history; audio not kept | V | support article |
 | 5 | Connected tools (connectors: Gmail, Calendar, Slack…) work in voice mode "the same way as in text chat"; paid plans choose model (Sonnet/Opus); Fable not available in voice | V | support article |
-| 6 | **Local MCP servers (claude_desktop_config.json) callable from voice mode** | **T** | Not documented by Anthropic. Stage 0 on 2026-11-19: works, in text chat and in voice mode — see "Stage 0 results". |
+| 6 | **Local MCP servers (claude_desktop_config.json) callable from voice mode** | **T** | Not documented by Anthropic. Stage 0 on 2026-11-19: works in **text chat**; **unreliable in voice mode** (later voice calls had no hft-gym tools) — see "Stage 0 results". |
 | 7 | **"In Claude Cowork and Claude Code, dictation is available but voice mode isn't."** | V | support article. ⇒ No two-way voice inside Cowork or the Code tab. |
 | 8 | Claude Code CLI `/voice`: speech-to-text only (no spoken replies), hold-Space or tap mode, 20 languages, claude.ai login required, local mic required, not in SSH/cloud sessions; in WSL needs WSLg (+ `sox libsox-fmt-pulse` if audio fails) | V | [code.claude.com/docs/en/voice-dictation](https://code.claude.com/docs/en/voice-dictation) |
 | 9 | Claude Code Desktop (Code tab) can run a session inside WSL 2; use it when the repo lives in the distro FS. Plugins unavailable in WSL sessions | V | [code.claude.com/docs/en/desktop-wsl](https://code.claude.com/docs/en/desktop-wsl.md) |
@@ -55,14 +55,26 @@ and logs are in `...\LocalCache\Local\Claude\logs\` (not `%APPDATA%\Claude`).
 | Test | Result | Evidence |
 |---|---|---|
 | (a) text chat calls a tool | **pass** | `read_file` on a file holding a random 24-hex nonce returned the exact nonce; the server process read the file at that moment. hft-gym is **not** listed in the chat's "+" menu, but the model sees all 15 tools. |
-| (b) voice mode calls a tool | **pass** | First try failed: speech-to-text heard "gym ping" as "Jim Pink" and no tool was called. With plain words ("Please run the health check tool and tell me the workspace root") the server answered a request (its write counter grew). |
+| (b) voice mode calls a tool | **unreliable** | One request reached the server at 12:55 during a test believed to be voice mode (its write counter grew), but the mode was not confirmed — it may have been dictation. Later voice calls in the project repeatedly said the hft-gym tools were not offered, while text chats in the same project had them. The first try also failed on speech-to-text ("gym ping" → "Jim Pink"). |
 | (c) fillers in transcript | **partly dropped** | Said "Um, so, uh, I think, uh, a heap works." → transcript "I think he bought uh, I think heap works heap, not he like." ⇒ filler metrics are a lower bound only. |
 | (d) ~15 s silence mid-answer | **no interruption** | Hands-free mode is fine; push-to-talk not needed. |
 
-Verdict: **the main design (Desktop voice mode + local MCP server) works.**
+Verdict: **text chat + local MCP works; voice mode + local MCP is not reliable.**
+Run interviews as a hybrid in one project chat: voice for the discussion
+phase (no tools needed; the voice transcript stays in the chat as text), then
+continue in **text** for scaffolding, build/test, `save_transcript` and the
+report. Not yet verified: that the tools come back in text after a voice call
+in the same chat — if not, continue in a new text chat and paste the voice
+transcript. Alternative: text chat with OS dictation (Windows: Win+H) — keeps
+speaking practice, loses listening practice.
+
 Practical notes:
 - Desktop does **not** log chat-originated `tools/call` in
   `mcp-server-hft-gym.log` (only `initialize`/`tools/list`). To verify a call,
   watch the server process (`/proc/<pid>/io` write counter) or use a nonce file.
 - In voice, refer to tools in plain words ("health check", "build and test"),
   not by their snake_case names.
+- In chat the tools are deferred and named `mcp__remote-devices__hft-gym__<tool>`.
+  A keyword search for "hft-gym" sometimes misses them; an exact-name select works.
+- The chat bridge drops an argument named `session_id`, so session tools take
+  `gym_session` instead (calling the server directly with `session_id` worked).
